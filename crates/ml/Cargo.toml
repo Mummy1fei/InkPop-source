@@ -1,0 +1,21 @@
+[package]
+name = "photocraft-ml"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[features]
+default = ["onnx"]
+# Local inference edge only; dynamically load the shipped native runtime.
+# No runtime downloads and no C/C++ linkage in the browser build.
+onnx = ["dep:ort"]
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+candle-core = { version = "=0.9.1", default-features = false }
+candle-nn = { version = "=0.9.1", default-features = false }
+candle-transformers = { version = "=0.9.1", default-features = false }
+ort = { version = "=2.0.0-rc.10", default-features = false, features = ["std", "load-dynamic", "directml"], optional = true }
+

@@ -1,0 +1,5 @@
+The InkPop application icons are derived from artwork supplied for use as
+InkPop software branding. These runtime derivatives omit authoring metadata.
+No separate trademark, general asset redistribution, or MIT/Apache license
+for the artwork is granted. The upstream PhotoCraft artwork in the parent
+directory retains its separate license.

@@ -1,0 +1,156 @@
+{
+  "sam2Revision": "a7df49d8de14b9d2e4504d1687b0d568f905fd8d",
+  "files": [
+    {
+      "path": "models/sam2/vision_encoder.onnx",
+      "bytes": 467440,
+      "sha256": "AACF1F7137BB6FFFCF6BF166ABCFABE28F57A76059254F3FB611C4A64A208119",
+      "source": "onnx-community SAM2.1 small revision a7df49d8de14b9d2e4504d1687b0d568f905fd8d"
+    },
+    {
+      "path": "models/sam2/vision_encoder.onnx_data",
+      "bytes": 162476288,
+      "sha256": "260FD1F0A34E72A3DC79A739E563B4FACC0BA75504818B433A1F808E66637456",
+      "source": "onnx-community SAM2.1 small revision a7df49d8de14b9d2e4504d1687b0d568f905fd8d"
+    },
+    {
+      "path": "models/sam2/prompt_encoder_mask_decoder.onnx",
+      "bytes": 213114,
+      "sha256": "079C59B261F723FF5C6A125E69B0170A957B21C58738C28D2B0394ECD0587D7F",
+      "source": "onnx-community SAM2.1 small revision a7df49d8de14b9d2e4504d1687b0d568f905fd8d"
+    },
+    {
+      "path": "models/sam2/prompt_encoder_mask_decoder.onnx_data",
+      "bytes": 20958208,
+      "sha256": "F9E59A584AB8CED21FA812C211BC01084204DB1C9E92A5EF4FB3A49972B4E864",
+      "source": "onnx-community SAM2.1 small revision a7df49d8de14b9d2e4504d1687b0d568f905fd8d"
+    },
+    {
+      "path": "models/birefnet-lite.onnx",
+      "bytes": 183982765,
+      "sha256": "A25E96EA4BD2B411597C0309DD12B6D83F980709E5BA77B2EE382C28BC0EAC1F",
+      "source": "InkPop v93 local ONNX export of official Tiny epoch232 weights: https://github.com/ZhengPeng7/BiRefNet/releases/download/v1/BiRefNet-general-bb_swin_v1_tiny-epoch_232.pth"
+    },
+    {
+      "path": "runtime/onnxruntime.dll",
+      "bytes": 20295752,
+      "sha256": "F0E5195D6B3C30ED00129A5F78DFD535773E1732B106960E9B823EA16D790935",
+      "source": "Microsoft onnxruntime-directml 1.22.0 wheel"
+    },
+    {
+      "path": "runtime/onnxruntime_providers_shared.dll",
+      "bytes": 21560,
+      "sha256": "A9B645F33B1DDCB6D91D35D824E13B49DB228A6C86572AB570AAFDFA54D33F39",
+      "source": "Microsoft onnxruntime-directml 1.22.0 wheel"
+    },
+    {
+      "path": "licenses/ORT-LICENSE",
+      "bytes": 1094,
+      "sha256": "C250D6278F0B47A6439FB7592B08B58A55EB9F535AA49A1DB63211C3F982B674",
+      "source": "Microsoft ONNX Runtime 1.22.0 distribution"
+    },
+    {
+      "path": "licenses/ORT-ThirdPartyNotices.txt",
+      "bytes": 333022,
+      "sha256": "E00F828E0A33DE591A355AE6606D2625F5758DA7D2C844DB7821C9DD3E3647B6",
+      "source": "Microsoft ONNX Runtime 1.22.0 distribution"
+    },
+    {
+      "path": "licenses/ORT-Privacy.md",
+      "bytes": 2490,
+      "sha256": "BFB7712B075F3F07E3EBEE5DC2A296D1DE32DBF71AD28663F73D1538CB6C3B08",
+      "source": "Microsoft ONNX Runtime 1.22.0 distribution"
+    },
+    {
+      "path": "licenses/DirectML-LICENSE.txt",
+      "bytes": 10439,
+      "sha256": "A05138E3A085FF60A44881EEDFA58DCCB03ECC1D7B1F6AE888418E8C2FEC4B8D",
+      "source": "https://api.nuget.org/v3-flatcontainer/microsoft.ai.directml/1.15.4/microsoft.ai.directml.1.15.4.nupkg"
+    },
+    {
+      "path": "licenses/DirectML-LICENSE-CODE.txt",
+      "bytes": 1093,
+      "sha256": "903DF5512F7D02609FED0C780A9B704F5A3EEB6E4D84EBE42A29845C81899A3C",
+      "source": "https://api.nuget.org/v3-flatcontainer/microsoft.ai.directml/1.15.4/microsoft.ai.directml.1.15.4.nupkg"
+    },
+    {
+      "path": "licenses/DirectML-ThirdPartyNotices.txt",
+      "bytes": 4577,
+      "sha256": "2C95795C13FF48A58B6ED916F37901C23D964B5D9D601AF422F17AD2172E7950",
+      "source": "https://api.nuget.org/v3-flatcontainer/microsoft.ai.directml/1.15.4/microsoft.ai.directml.1.15.4.nupkg"
+    },
+    {
+      "path": "runtime/DirectML.dll",
+      "bytes": 18527776,
+      "sha256": "9C9E6D822561C6C41B90E6994B3E8857CF1D66DBFB1E0C4C799C7C89B4E92DA1",
+      "source": "https://api.nuget.org/v3-flatcontainer/microsoft.ai.directml/1.15.4/microsoft.ai.directml.1.15.4.nupkg"
+    },
+    {
+      "path": "models/LICENSE-SAM2.txt",
+      "bytes": 11357,
+      "sha256": "C71D239DF91726FC519C6EB72D318EC65820627232B2F796219E87DCF35D0AB4",
+      "source": "https://raw.githubusercontent.com/facebookresearch/sam2/main/LICENSE"
+    },
+    {
+      "path": "models/LICENSE-BiRefNet.txt",
+      "bytes": 1066,
+      "sha256": "92A7089E0915FC32BC40067560B398F1E6A7A5958ABD7D04EDA393629A5ACEFB",
+      "source": "https://raw.githubusercontent.com/ZhengPeng7/BiRefNet/main/LICENSE"
+    },
+    {
+      "path": "licenses/ort-2.0.0-rc.10-LICENSE-APACHE",
+      "bytes": 11358,
+      "sha256": "CFC7749B96F63BD31C3C42B5C471BF756814053E847C10F3EB003417BC523D30",
+      "source": "https://crates.io/crates/ort-2.0.0"
+    },
+    {
+      "path": "licenses/ort-2.0.0-rc.10-LICENSE-MIT",
+      "bytes": 1107,
+      "sha256": "B880185ADD684CD1C6D24394A2E30FE08B75BA4586619B0890CE764BC4CD43A0",
+      "source": "https://crates.io/crates/ort-2.0.0"
+    },
+    {
+      "path": "licenses/ort-sys-2.0.0-rc.10-LICENSE-APACHE",
+      "bytes": 11358,
+      "sha256": "CFC7749B96F63BD31C3C42B5C471BF756814053E847C10F3EB003417BC523D30",
+      "source": "https://crates.io/crates/ort-sys-2.0.0"
+    },
+    {
+      "path": "licenses/ort-sys-2.0.0-rc.10-LICENSE-MIT",
+      "bytes": 1107,
+      "sha256": "B880185ADD684CD1C6D24394A2E30FE08B75BA4586619B0890CE764BC4CD43A0",
+      "source": "https://crates.io/crates/ort-sys-2.0.0"
+    },
+    {
+      "path": "models/EXPORT-CONTRACT-v93.txt",
+      "bytes": 966,
+      "sha256": "CC49A403B919233DCA1A76A0EC423CC0C61000DF018C632705027FFDA7811BD4",
+      "source": "InkPop v93 verified local export contract"
+    }
+  ],
+  "noUserConfigurationOrImages": true,
+  "productNetworkDownload": false,
+  "ortTelemetryEnabled": false,
+  "defaultSubject": "U2NETP-fast",
+  "preciseSubject": "BiRefNet-CPU-only",
+  "directMLLicense": "Microsoft Software License Terms, distinct from ORT MIT and SAM2 Apache-2.0",
+  "foregroundExport": {
+    "sourceCommit": "f7079632d681ecf12161fcea8905682934e59e51",
+    "weightsSha256": "6A1E050C6EC2697E5ED268455DF544782B023ACF8643AB771250979094875AB1",
+    "weightsUrl": "https://github.com/ZhengPeng7/BiRefNet/releases/download/v1/BiRefNet-general-bb_swin_v1_tiny-epoch_232.pth",
+    "modelSide": 1024,
+    "input": "input_image",
+    "output": "output_image",
+    "outputKind": "logits",
+    "change": "Sequential standard GridSample/1x1 Conv accumulation for deformable convolution; strict original Tiny state_dict",
+    "originalPyTorchComparison": {
+      "maximum": 1.3649463653564453e-05,
+      "mean": 5.8889182419363806e-09,
+      "binaryMasksIdentical": true
+    },
+    "formerOfficialOnnxIdentical": false,
+    "cpuMemoryPattern": false,
+    "cpuArena": false,
+    "directMLAllowed": false
+  }
+}

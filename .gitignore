@@ -1,0 +1,40 @@
+*~
+plan/
+/target
+target/
+/dist
+/corpus
+/log
+/secrets
+/temp
+/book/output
+/craft-fonts
+
+# Local development, user state and portable build outputs.
+/.qa/
+/.qa-*
+/evidence/
+/output/
+/golden-tree.json
+/docs/project-status.md
+*.log
+PhotoCraftData/
+CrashReports/
+Autosave/
+preferences.json
+window.ron
+*.abr
+*.tpl
+.env
+.env.*
+!.env.example
+*.pfx
+*.p12
+*.dmp
+__pycache__/
+# Model weights and dynamic libraries are shipped in the binary release.
+/assets/segmentation/models/*.onnx
+/assets/segmentation/models/sam2/*.onnx*
+/assets/segmentation/runtime/
+# The authoring original may contain private editing metadata.
+/assets/app-icon/inkpop/source-original.png

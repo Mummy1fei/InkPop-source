@@ -1,0 +1,324 @@
+//! Opening files from disk: File › Open, Open Recent, drag-and-drop onto the window (except onto
+//! a document's canvas, which places the file as a layer), command-line paths at launch
+//! and the OS's "open these documents" requests (macOS Finder double-click, Open With, drops on the
+//! Dock icon) all go through [`PhotocraftApp::open_file`], so each one names the document after the
+//! file, remembers its path (File › Save writes back to it) and adds it to Open Recent. Failures
+//! are shown as errors (status bar + notice); import warnings as a notice.
+
+use crate::{PhotocraftApp, notices};
+use photocraft_doc::DocId;
+use photocraft_engine::file_cmds::{is_template, untitled_name};
+
+#[path = "file_open/save_defaults_v74.rs"]
+mod save_defaults;
+pub(crate) use save_defaults::{save_in_place_path, saves_as_flat_copy, suggested_save_path};
+
+#[path = "file_open/save_adopt_path_v75.rs"]
+mod save_adopt_path;
+pub(crate) use save_adopt_path::export_named_snapshot;
+
+/// A request from the operating system, delivered by the platform shell through
+/// [`Services::os_events`](crate::Services::os_events).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum OsEvent {
+    /// Open these files (absolute paths), e.g. a Finder double-click.
+    Open(Vec<String>),
+    /// Quit (e.g. the Dock menu's Quit, log out): goes through the normal close path, which asks
+    /// about unsaved changes.
+    Quit,
+}
+
+/// Where files dropped on the window land, as in the reference app. winit 0.30's drops carry no
+/// position, so it comes from the OS ([`Services::cursor_pos`](crate::Services::cursor_pos));
+/// unknown counts as elsewhere.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DropTarget {
+    /// The active document's canvas: placed as layers (Place Embedded), each in Free Transform.
+    Canvas,
+    /// A specific floating document's canvas. The ID remains stable through tab switches.
+    FloatingCanvas(DocId),
+    /// The tab strip: opened with their tabs from this position (the strip shows it while files
+    /// hover).
+    Tabs(usize),
+    /// The title of a floating document group.
+    FloatingTabs(u64),
+    /// Anywhere else (panels, a dialog, no document): opened like File › Open.
+    Elsewhere,
+}
+
+pub(crate) struct DroppedPlacement {
+    pub file: egui::DroppedFileHandle,
+    pub document: DocId,
+}
+
+/// A dropped file's name ("dropped" when it has none).
+fn dropped_name(f: &egui::DroppedFileHandle) -> String {
+    f.path().file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_else(|| "dropped".into())
+}
+
+/// The file name of `path` (the document's display name), or `path` itself when it has none.
+pub fn display_name(path: &str) -> String {
+    std::path::Path::new(path).file_name().map(|n| n.to_string_lossy().to_string()).filter(|n| !n.is_empty()).unwrap_or_else(|| path.to_string())
+}
+
+impl PhotocraftApp {
+    /// Open `bytes` read from the file at `path`: the document is named after the file, keeps
+    /// `path` for File › Save, and `path` goes to the top of Open Recent. Returns the import
+    /// warnings (also shown to the user).
+    pub fn open_file(&mut self, path: &str, bytes: &[u8]) -> Result<Vec<String>, String> {
+        // Brushes/gradients go to the preset libraries (no document, no Open Recent entry).
+        if let Some(r) = crate::preset_files_ui::open(self, path, bytes) {
+            return r.map(|()| Vec::new());
+        }
+        if self.background_jobs {
+            // The path and Open Recent are recorded when the background open finishes.
+            crate::jobs_ui::start_open(self, &display_name(path), Some(path.to_string()), crate::jobs_ui::bytes(bytes))?;
+            return Ok(Vec::new());
+        }
+        let warnings = self.open_bytes(&display_name(path), bytes)?;
+        self.opened_from(path);
+        Ok(warnings)
+    }
+
+    /// Record that the active document was just opened from `path`: File › Save writes back to it
+    /// (unless it's a template) and it goes to the top of Open Recent.
+    pub(crate) fn opened_from(&mut self, path: &str) {
+        if !is_template(path)
+            && let Some(st) = self.session.active_mut()
+        {
+            st.path = Some(path.to_string());
+        }
+        self.push_recent(path);
+    }
+
+    /// The name a file called `name` opens under: its own, or the first free "Untitled-N" for a
+    /// template.
+    pub(crate) fn open_name(&self, name: &str) -> String {
+        if !is_template(name) {
+            return name.to_string();
+        }
+        untitled_name(tl!("Untitled"), |n| self.session.documents().iter().any(|d| d.doc.name == n) || self.jobs.opens.iter().any(|o| o.name == n))
+    }
+
+    /// Read and open the file at `path` (see [`open_file`](Self::open_file)).
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn open_path(&mut self, path: &str) -> Result<Vec<String>, String> {
+        // Documents opening in the background are read on the worker too (a 2 GB PSB read
+        // would block the window). Preset files (brushes, gradients) go the usual way.
+        let ext = std::path::Path::new(path).extension().map(|e| e.to_string_lossy().to_ascii_lowercase()).unwrap_or_default();
+        if self.background_jobs && !crate::preset_files_ui::PRESET_EXTS.contains(&ext.as_str()) {
+            crate::jobs_ui::start_open(self, &display_name(path), Some(path.to_string()), photocraft_engine::jobs::OpenSource::Path(path.to_string()))?;
+            return Ok(Vec::new());
+        }
+        let bytes = photocraft_format::read_file(std::path::Path::new(path)).map_err(|e| format!("{path}: {e}"))?;
+        self.open_file(path, &bytes)
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    pub fn open_path(&mut self, path: &str) -> Result<Vec<String>, String> {
+        Err(format!("cannot open paths on the web: {path}"))
+    }
+
+    /// Open several files, reporting each failure to the user instead of stopping. Relative paths
+    /// are resolved against the working directory so the remembered path stays valid. Returns how
+    /// many opened.
+    pub fn open_paths(&mut self, paths: &[String]) -> usize {
+        let mut opened = 0;
+        for p in paths {
+            let abs = absolute(p);
+            match self.open_path(&abs) {
+                Ok(_) => opened += 1,
+                Err(e) => self.open_failed(&display_name(p), &e),
+            }
+        }
+        opened
+    }
+
+    /// Show "Couldn't open <name>: <error>" as an error (status bar + notice).
+    pub fn open_failed(&mut self, name: &str, err: &str) {
+        self.failed(format!("Couldn't open {name}: {err}"));
+    }
+
+    /// Log `msg` and show it as an error (status bar + notice).
+    fn failed(&mut self, msg: String) {
+        log::warn!("{msg}");
+        notices::error(self, msg);
+    }
+
+    /// Files dropped onto the window at `at` (the pointer, when known), routed by [`DropTarget`].
+    /// Preset files (brushes, gradients) always go to their libraries. Native drops carry an
+    /// absolute path, read in bounded reads (#375) rather than egui's whole-file read.
+    pub fn open_dropped(&mut self, ctx: &egui::Context, files: Vec<egui::DroppedFileHandle>, at: Option<egui::Pos2>) {
+        self.route_dropped(files, self.drop_target(ctx, at));
+    }
+
+    pub(crate) fn route_dropped(&mut self, files: Vec<egui::DroppedFileHandle>, mut target: DropTarget) {
+        let placement = match target {
+            DropTarget::Canvas => self.session.active().map(|state| state.doc.id),
+            DropTarget::FloatingCanvas(document) => Some(document),
+            _ => None,
+        };
+        for f in files {
+            let name = dropped_name(&f);
+            if let Some(document) = placement.filter(|_| !crate::preset_files_ui::is_preset_file(&name)) {
+                self.drop_places.push_back(DroppedPlacement { file: f, document });
+                continue;
+            }
+            match self.open_dropped_file(&f, &name, target) {
+                Ok(true) => {
+                    if let DropTarget::Tabs(slot) = &mut target {
+                        *slot += 1;
+                    }
+                }
+                Ok(false) => {}
+                Err(e) => self.open_failed(&name, &e),
+            }
+        }
+    }
+
+    /// Where a drop at `at` lands. Over a window or dialog it's neither the canvas nor the tabs.
+    pub(crate) fn drop_target(&self, ctx: &egui::Context, at: Option<egui::Pos2>) -> DropTarget {
+        let Some(p) = at.filter(|p| ctx.layer_id_at(*p).is_none_or(|l| l.order == egui::Order::Background)) else {
+            return DropTarget::Elsewhere;
+        };
+        if let Some(strip) = self.tab_strip.as_ref().filter(|s| s.rect.contains(p)) {
+            return DropTarget::Tabs(strip.slot(p.x));
+        }
+        // The canvas shown last frame may belong to a document closed since.
+        if self.session.active().is_some() && self.drop_canvas_rect.is_some_and(|r| r.contains(p)) {
+            return DropTarget::Canvas;
+        }
+        DropTarget::Elsewhere
+    }
+
+    /// Open one dropped file; with `slot`, its tab goes there (when it finishes opening, for
+    /// background opens). True when it took the slot.
+    fn open_dropped_file(&mut self, f: &egui::DroppedFileHandle, name: &str, target: DropTarget) -> Result<bool, String> {
+        // Opens append: a background open's tab, or a document.
+        let (docs, opens) = (self.session.documents().len(), self.jobs.opens.len());
+        if f.path().is_absolute() {
+            self.open_path(&f.path().to_string_lossy())?;
+        } else {
+            self.open_bytes(name, &crate::read_dropped(&**f)?)?;
+        }
+        match target {
+            DropTarget::Tabs(slot) => {
+                if let Some(tab) = self.jobs.opens.get_mut(opens) {
+                    tab.slot = Some(slot);
+                    return Ok(true);
+                }
+                Ok(self.session.documents().len() > docs && self.run("document.move", serde_json::json!({"document": docs, "to": slot})).is_ok())
+            }
+            DropTarget::FloatingTabs(window) => {
+                if let Some(job) = self.jobs.opens.get(opens).map(|tab| tab.job) {
+                    crate::document_window_ui::queue_open_tab(self, window, job);
+                } else if self.session.documents().len() > docs {
+                    crate::document_window_ui::append_document_tab(self, window, docs);
+                }
+                Ok(false)
+            }
+            _ => Ok(false),
+        }
+    }
+
+    /// Place the next file dropped on the canvas and start Free Transform on it, once no other
+    /// transform is in progress (so several files are placed and transformed one after another).
+    pub(crate) fn place_next_dropped(&mut self, ctx: &egui::Context) {
+        while self.ui.transform.is_none()
+            && self.drag.is_none()
+            && self.discard.is_none()
+            && self.camera_raw.is_none()
+            && self.jpeg_options.is_none()
+            && self.distort.liquify.is_none()
+            && self.ui.dialogs.is_empty()
+        {
+            let Some(DroppedPlacement { file: f, document }) = self.drop_places.pop_front() else { return };
+            let Some(index) = self.session.documents().iter().position(|state| state.doc.id == document) else { continue };
+            if let Some(window) = self.ui.windows.iter().find(|w| w.open && w.contains_document(index)).map(|w| w.id) {
+                if !crate::document_window_ui::select_document_tab(self, ctx, window, index) {
+                    self.drop_places.push_front(DroppedPlacement { file: f, document });
+                    return;
+                }
+                crate::document_window_ui::restore_manual_from_menu(ctx, window);
+                ctx.send_viewport_cmd_to(egui::ViewportId::from_hash_of(("docwin", window)), egui::ViewportCommand::Focus);
+            } else if self.session.active_index() != Some(index) {
+                crate::type_tool::commit(self);
+                if self.ui.text_edit.is_some() {
+                    self.drop_places.push_front(DroppedPlacement { file: f, document });
+                    return;
+                }
+                self.session.set_active(index);
+                self.sync_views();
+            }
+            let placed = if f.path().is_absolute() {
+                self.run(
+                    "file.placeEmbedded",
+                    serde_json::json!({
+                        "path": f.path().to_string_lossy(),
+                        "asSmartObject": self.session.prefs().general.always_create_smart_objects_when_placing
+                    }),
+                )
+            } else {
+                crate::read_dropped(&*f).and_then(|bytes| self.place_bytes(&dropped_name(&f), bytes, None))
+            };
+            match placed {
+                Ok(_) => {
+                    if let Err(e) = crate::transform_tool::begin_placed(self, ctx) {
+                        self.ui.status = e;
+                    }
+                }
+                Err(e) => self.failed(crate::i18n::fmt(tl!("Couldn't place {name}: {error}"), &[("name", &dropped_name(&f)), ("error", &e)])),
+            }
+        }
+    }
+
+    /// Place GUI picker/drop bytes in the selected pixel/smart mode. Linked placement
+    /// always keeps a smart source so its link remains meaningful.
+    pub(crate) fn place_bytes(&mut self, name: &str, bytes: Vec<u8>, linked: Option<String>) -> Result<serde_json::Value, String> {
+        let smart = linked.is_some() || self.session.prefs().general.always_create_smart_objects_when_placing;
+        let r = photocraft_engine::file_cmds::place_bytes(&mut self.session, name, bytes, linked, &serde_json::json!({"asSmartObject":smart}))
+            .map_err(|e| e.to_string());
+        self.sync_views();
+        if r.is_ok() {
+            crate::diagnostics_ui::source_ready(self, crate::DiagnosticOperation::Place);
+        }
+        r
+    }
+
+    /// Handle the OS requests queued since the last frame.
+    pub(crate) fn drain_os_events(&mut self, ctx: &egui::Context) {
+        let events = self.services.os_events.as_mut().map(|f| f()).unwrap_or_default();
+        for e in events {
+            match e {
+                OsEvent::Open(paths) => {
+                    self.open_paths(&paths);
+                    // Bring the window forward when another app (Finder, the Dock) asked us to open.
+                    ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
+                    ctx.request_repaint();
+                }
+                OsEvent::Quit => ctx.send_viewport_cmd(egui::ViewportCommand::Close),
+            }
+        }
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn absolute(p: &str) -> String {
+    std::path::absolute(p).map(|a| a.to_string_lossy().to_string()).unwrap_or_else(|_| p.to_string())
+}
+
+#[cfg(target_arch = "wasm32")]
+fn absolute(p: &str) -> String {
+    p.to_string()
+}
+
+#[cfg(test)]
+mod tests;
+
+#[cfg(test)]
+#[path = "file_open/save_in_place_tests_v87.rs"]
+mod save_in_place_tests_v87;
+
+#[cfg(test)]
+#[path = "file_open/place_mode_tests_v89.rs"]
+mod place_mode_tests_v89;
